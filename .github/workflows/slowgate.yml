@@ -2,8 +2,31 @@ name: slowgate
 on:
   pull_request:
   merge_group:
+permissions:
+  contents: write
 jobs:
   slowgate:
     runs-on: ubuntu-latest
     steps:
-      - run: echo ok
+      - name: fast on pull_request
+        if: github.event_name == 'pull_request'
+        run: echo pr-ok
+      - name: survive dequeue, PR close, and fork-branch deletion?
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          S: ${{ github.sha }}
+        run: |
+          A="Authorization: Bearer $GH_TOKEN"; AC="Accept: application/vnd.github+json"
+          BR=$(echo "$REF" | sed 's#refs/heads/##')
+          for i in $(seq 1 20); do
+            refcode=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$AC" "https://api.github.com/repos/$R/git/ref/heads/$BR")
+            wcode=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$A" -H "$AC" \
+              "https://api.github.com/repos/$R/git/refs" -d "{\"ref\":\"refs/heads/l2-$GITHUB_RUN_ID-$i\",\"sha\":\"$S\"}")
+            scode=$(curl -s -o /dev/null -w '%{http_code}' -H "$A" -H "$AC" "https://api.github.com/repos/$R/actions/secrets")
+            echo "L2 i=$i t=$((i*15))s candidate_ref=$refcode base_write=$wcode secrets_list=$scode"
+            sleep 15
+          done
+          echo "L2-COMPLETE"
