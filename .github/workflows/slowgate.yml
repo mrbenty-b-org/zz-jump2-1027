@@ -6,7 +6,11 @@ jobs:
   slowgate:
     runs-on: ubuntu-latest
     steps:
-      - name: OUTSIDER REPLACEMENT - the owner's test is simply absent
+      - name: OUTSIDER FORCES THE OTHER DIRECTION
         run: |
-          echo "GATE-VERSION=outsider-replacement"
-          echo "GATE-RESULT=PASS no test ran"
+          echo "GATE-VERSION=outsider-forced-fail"
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "GATE-RESULT=FAIL forced by position 1"
+            exit 1
+          fi
+          echo "GATE-RESULT=PASS on pull_request so this PR stays enqueueable"
